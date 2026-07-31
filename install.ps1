@@ -1,6 +1,7 @@
 param(
     [switch]$Update,
-    [switch]$SkipVerify
+    [switch]$SkipVerify,
+    [string]$Version = "ae56d74"
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,15 +34,22 @@ if ($major -lt 18) {
 
 Write-Host "Node.js $nodeVer detected."
 
+Write-Host "Installing version: $Version" -ForegroundColor Cyan
+
 if (Test-Path $InstallDir) {
     Write-Host "Updating existing install at $InstallDir ..."
     Push-Location $InstallDir
-    git pull --ff-only origin main 2>$null
+    git fetch --depth 1 origin $Version 2>$null
+    git checkout $Version 2>$null
     Pop-Location
 } else {
     Write-Host "Cloning PGAutoPilot into $InstallDir ..."
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-    git clone --depth 1 $Repo $InstallDir
+    git clone $Repo $InstallDir
+    Push-Location $InstallDir
+    git fetch --depth 1 origin $Version
+    git checkout $Version
+    Pop-Location
 }
 
 $BundlePath = Join-Path $InstallDir $BundleFile
@@ -53,12 +61,27 @@ if (-not (Test-Path $BundlePath)) {
 }
 
 if (-not $SkipVerify) {
-    $ChecksumsFile = Join-Path $InstallDir "dist\checksums.txt"
-    $SigFile = Join-Path $InstallDir "dist\checksums.txt.sig"
-    if (Test-Path $ChecksumsFile) {
+    # Fetch checksums from GitHub raw content at the pinned version
+    # (independent source from the cloned repository, so a compromised
+    # clone cannot tamper with the checksums).
+    $ChecksumsUrl = "https://raw.githubusercontent.com/cyberreinxy/pgautopilot/$Version/dist/checksums.txt"
+    $RemoteChecksums = Join-Path $env:TEMP "pgap-checksums-$([System.IO.Path]::GetRandomFileName())"
+    try {
+        Invoke-WebRequest -Uri $ChecksumsUrl -OutFile $RemoteChecksums -ErrorAction Stop
+    } catch {
+        # Fallback to local if remote unavailable (offline install, etc.)
+        $LocalChecksums = Join-Path $InstallDir "dist\checksums.txt"
+        if (Test-Path $LocalChecksums) {
+            Copy-Item $LocalChecksums $RemoteChecksums
+        } else {
+            Write-Host "Checksums unavailable — skipping verification." -ForegroundColor Yellow
+            Write-Host "After install, run 'cd $InstallDir; npm run verify' to check manually." -ForegroundColor Cyan
+        }
+    }
+    if (Test-Path $RemoteChecksums) {
         Write-Host "Verifying software integrity..." -ForegroundColor Cyan
         $verified = $true
-        $content = Get-Content $ChecksumsFile -Encoding utf8
+        $content = Get-Content $RemoteChecksums -Encoding utf8
         foreach ($line in $content) {
             if ([string]::IsNullOrWhiteSpace($line)) { continue }
             $parts = $line -split '\s+', 2
@@ -77,18 +100,18 @@ if (-not $SkipVerify) {
                 $verified = $false
             }
         }
+        $SigFile = Join-Path $InstallDir "dist\checksums.txt.sig"
         if (Test-Path $SigFile) {
-            Write-Host "  GPG signature file found (verify separately: gpg --verify $SigFile $ChecksumsFile)" -ForegroundColor Cyan
+            Write-Host "  GPG signature file found. Verify with: gpg --verify $SigFile $RemoteChecksums" -ForegroundColor Cyan
+            Write-Host "  Import the maintainer's public key from a keyserver to verify authenticity." -ForegroundColor Cyan
         }
+        Remove-Item $RemoteChecksums -Force
         if (-not $verified) {
             Write-Host "INTEGRITY CHECK FAILED. Software may be tampered with." -ForegroundColor Red
             Write-Host "Use -SkipVerify to bypass, or re-install from the official repository." -ForegroundColor Yellow
             exit 1
         }
         Write-Host "Integrity check passed." -ForegroundColor Green
-    } else {
-        Write-Host "Checksums not found at $ChecksumsFile — skipping verification." -ForegroundColor Yellow
-        Write-Host "Run 'npm run verify' after install to check manually." -ForegroundColor Cyan
     }
 }
 

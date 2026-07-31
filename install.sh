@@ -2,11 +2,18 @@
 set -euo pipefail
 
 SKIP_VERIFY=false
+PINNED_VERSION=""
 for arg in "$@"; do
   case "$arg" in
     --skip-verify) SKIP_VERIFY=true ;;
+    --version=*) PINNED_VERSION="${arg#*=}" ;;
   esac
 done
+
+# Default to a specific commit hash so installs are deterministic
+# and immune to the repo's main branch being force-pushed or tampered.
+# Override with --version=main to follow the latest main branch.
+: "${PINNED_VERSION:=ae56d74}"
 
 INSTALL_DIR="${HOME}/.local/bin"
 PGAP_DIR="${HOME}/.pgautopilot"
@@ -38,14 +45,19 @@ fi
 
 echo "Node.js $(node -v) detected."
 
+echo -e "${CYAN}Installing version: ${PINNED_VERSION}${NC}"
+
 if [ -d "$PGAP_DIR" ]; then
   echo "Updating existing install at $PGAP_DIR ..."
   cd "$PGAP_DIR"
-  git pull --ff-only origin main 2>/dev/null || true
+  git fetch --depth 1 origin "$PINNED_VERSION"
+  git checkout "$PINNED_VERSION"
 else
   echo "Cloning PGAutoPilot into $PGAP_DIR ..."
-  git clone --depth 1 "$REPO" "$PGAP_DIR"
+  git clone "$REPO" "$PGAP_DIR"
   cd "$PGAP_DIR"
+  git fetch --depth 1 origin "$PINNED_VERSION"
+  git checkout "$PINNED_VERSION"
 fi
 
 BUNDLE_PATH="$PGAP_DIR/$BUNDLE_FILE"
@@ -58,8 +70,23 @@ if [ ! -f "$BUNDLE_PATH" ]; then
 fi
 
 if [ "$SKIP_VERIFY" = false ]; then
-  CHECKSUMS_FILE="$PGAP_DIR/dist/checksums.txt"
-  SIG_FILE="$PGAP_DIR/dist/checksums.txt.sig"
+  # Fetch checksums from GitHub raw content at the pinned version
+  # (independent source from the cloned repository, so a compromised
+  # clone cannot tamper with the checksums).
+  CHECKSUMS_URL="https://raw.githubusercontent.com/cyberreinxy/pgautopilot/$PINNED_VERSION/dist/checksums.txt"
+  CHECKSUMS_FILE=$(mktemp -t pgap-checksums-XXXXXX.txt 2>/dev/null || echo "$PGAP_DIR/dist/checksums.txt")
+  HTTP_CODE=$(curl -s -o "$CHECKSUMS_FILE" -w "%{http_code}" "$CHECKSUMS_URL" 2>/dev/null || echo "000")
+  if [ "$HTTP_CODE" != "200" ]; then
+    # Fallback to local if remote unavailable (offline install, etc.)
+    LOCAL_CHECKSUMS="$PGAP_DIR/dist/checksums.txt"
+    if [ -f "$LOCAL_CHECKSUMS" ]; then
+      cp "$LOCAL_CHECKSUMS" "$CHECKSUMS_FILE"
+    else
+      echo -e "${YELLOW}Checksums unavailable — skipping verification.${NC}"
+      echo -e "${CYAN}After install, run 'cd $PGAP_DIR && npm run verify' to check manually.${NC}"
+      rm -f "$CHECKSUMS_FILE"
+    fi
+  fi
   if [ -f "$CHECKSUMS_FILE" ]; then
     echo -e "${CYAN}Verifying software integrity...${NC}"
     VERIFIED=true
@@ -79,18 +106,18 @@ if [ "$SKIP_VERIFY" = false ]; then
         VERIFIED=false
       fi
     done < "$CHECKSUMS_FILE"
+    SIG_FILE="$PGAP_DIR/dist/checksums.txt.sig"
     if [ -f "$SIG_FILE" ]; then
-      echo -e "${CYAN}  GPG signature file found (verify: gpg --verify $SIG_FILE $CHECKSUMS_FILE)${NC}"
+      echo -e "${CYAN}  GPG signature file found. Verify with: gpg --verify $SIG_FILE $CHECKSUMS_FILE${NC}"
+      echo -e "${CYAN}  Import the maintainer's public key from a keyserver to verify authenticity.${NC}"
     fi
+    rm -f "$CHECKSUMS_FILE"
     if [ "$VERIFIED" = false ]; then
       echo -e "${RED}INTEGRITY CHECK FAILED. Software may be tampered with.${NC}"
       echo -e "${YELLOW}Use --skip-verify to bypass, or re-install from the official repository.${NC}"
       exit 1
     fi
     echo -e "${GREEN}Integrity check passed.${NC}"
-  else
-    echo -e "${YELLOW}Checksums not found — skipping verification.${NC}"
-    echo -e "${CYAN}Run 'npm run verify' after install to check manually.${NC}"
   fi
 fi
 

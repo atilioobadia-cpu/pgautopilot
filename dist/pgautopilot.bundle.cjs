@@ -16571,6 +16571,9 @@ async function getSchema(pool, forceRefresh = false) {
   cache = { tables, at: Date.now() };
   return tables;
 }
+function invalidateSchemaCache() {
+  cache = null;
+}
 async function resolveTableName(pool, input) {
   const tables = await getSchema(pool);
   const match = tables.find((t) => t.name.toLowerCase() === input.toLowerCase());
@@ -16806,10 +16809,101 @@ var init_sqlBuilder = __esm({
 });
 
 // dist/toolHandlers.js
+function findPgDump() {
+  if (process.platform === "win32") {
+    const commonPaths = [
+      "C:\\Program Files\\PostgreSQL\\17\\bin\\pg_dump.exe",
+      "C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe",
+      "C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe",
+      "C:\\Program Files\\PostgreSQL\\14\\bin\\pg_dump.exe",
+      "C:\\Program Files\\PostgreSQL\\13\\bin\\pg_dump.exe",
+      `${process.env["ProgramFiles"] || "C:\\Program Files"}\\PostgreSQL\\17\\bin\\pg_dump.exe`,
+      `${process.env["ProgramFiles"] || "C:\\Program Files"}\\PostgreSQL\\16\\bin\\pg_dump.exe`,
+      `${process.env["ProgramFiles"] || "C:\\Program Files"}\\PostgreSQL\\15\\bin\\pg_dump.exe`
+    ];
+    for (const p of commonPaths) {
+      if ((0, import_fs2.existsSync)(p))
+        return p;
+    }
+  }
+  return "pg_dump";
+}
 function stripSqlStrings(sql) {
-  let result = sql.replace(/\$(\w*)\$.*?\$\1\$/gs, "''");
-  result = result.replace(/\$\$.*?\$\$/gs, "''");
-  result = result.replace(/'[^']*'/g, "''");
+  let result = "";
+  let i = 0;
+  const len = sql.length;
+  while (i < len) {
+    if (sql[i] === "-" && sql[i + 1] === "-") {
+      while (i < len && sql[i] !== "\n")
+        i++;
+      result += " ";
+      continue;
+    }
+    if (sql[i] === "/" && sql[i + 1] === "*") {
+      i += 2;
+      while (i < len - 1 && !(sql[i] === "*" && sql[i + 1] === "/"))
+        i++;
+      i += 2;
+      result += " ";
+      continue;
+    }
+    if (sql[i] === "$") {
+      const tagStart = i;
+      i++;
+      let tag = "";
+      while (i < len && sql[i] !== "$") {
+        tag += sql[i];
+        i++;
+      }
+      if (i < len && sql[i] === "$") {
+        i++;
+        const closeTag = "$" + tag + "$";
+        const closeIdx = sql.indexOf(closeTag, i);
+        if (closeIdx !== -1) {
+          i = closeIdx + closeTag.length;
+          result += "''";
+          continue;
+        }
+      }
+      i = tagStart + 1;
+      result += "$";
+      continue;
+    }
+    if (sql[i] === "'") {
+      i++;
+      while (i < len) {
+        if (sql[i] === "'") {
+          if (i + 1 < len && sql[i + 1] === "'") {
+            i += 2;
+            continue;
+          }
+          i++;
+          break;
+        }
+        i++;
+      }
+      result += "''";
+      continue;
+    }
+    if (sql[i] === '"') {
+      i++;
+      while (i < len) {
+        if (sql[i] === '"') {
+          if (i + 1 < len && sql[i + 1] === '"') {
+            i += 2;
+            continue;
+          }
+          i++;
+          break;
+        }
+        i++;
+      }
+      result += '""';
+      continue;
+    }
+    result += sql[i];
+    i++;
+  }
   return result;
 }
 function parseJsonObject(input, label) {
@@ -16843,25 +16937,28 @@ function parseJsonArray(input, label) {
 function columnSet(table) {
   return new Set(table.columns.map((c) => c.name));
 }
-function decodePgError(err) {
+function decodePgError(err, mode = "production") {
   if (!err || typeof err !== "object")
-    return String(err);
+    return mode === "development" ? String(err) : "Database error";
   const e = err;
+  const detail = mode === "development" ? e.detail ?? "" : "";
   switch (e.code) {
     case "23505":
-      return `Unique constraint violation${e.constraint ? ` on "${e.constraint}"` : ""}. ${e.detail ?? "A matching row already exists."}`;
+      return `Unique constraint violation. ${detail || "A matching row already exists."}`;
     case "23503":
-      return `Foreign key constraint failed${e.constraint ? ` on "${e.constraint}"` : ""}. ${e.detail ?? "Referenced row does not exist."}`;
+      return `Foreign key constraint failed. ${detail || "Referenced row does not exist."}`;
     case "23502":
-      return `Null constraint violation. ${e.detail ?? "A required column was left empty."}`;
+      return `Null constraint violation. ${detail || "A required column was left empty."}`;
     case "22001":
-      return `Value too long for column. ${e.detail ?? ""}`.trim();
+      return `Value too long for column.${detail && mode === "development" ? " " + detail : ""}`;
     case "42703":
-      return `Undefined column. ${e.message ?? ""}`.trim();
+      return "Undefined column.";
     case "42P01":
-      return `Undefined table. ${e.message ?? ""}`.trim();
+      return "Table not found.";
     default:
-      return e.message ?? String(err);
+      if (mode === "development")
+        return e.message ?? String(err);
+      return "Database error";
   }
 }
 function textResponse(data) {
@@ -16929,7 +17026,7 @@ function createHandlers(pool, safety, config2) {
         logRequest("db_health", Date.now() - t0);
         return textResponse({
           status: "disconnected",
-          error: decodePgError(err),
+          error: decodePgError(err, config2.mode),
           uptimeSeconds: Math.floor((Date.now() - startTime) / 1e3),
           totalRequests: requestCount
         });
@@ -17063,26 +17160,26 @@ function createHandlers(pool, safety, config2) {
       if (strippedSql.includes(";") && (strippedSql.indexOf(";") !== strippedSql.length - 1 || strippedSql.split(";").length > 2)) {
         throw new Error("Multi-statement queries are not allowed. Use a single SELECT statement.");
       }
-      const upperSql = sql.toUpperCase().replace(/;\s*$/, "").trim();
-      if (!/^SELECT\b/.test(upperSql)) {
+      const normalizedSql = strippedSql.toUpperCase().replace(/;\s*$/, "").trim();
+      if (!/^SELECT\b/.test(normalizedSql)) {
         throw new Error("Only SELECT queries are allowed via db_raw_query.");
       }
       const dangerousPatterns = [
-        /\bpg_read_file\b/i,
-        /\bpg_read_binary_file\b/i,
-        /\bpg_ls_dir\b/i,
-        /\bpg_write_file\b/i,
-        /\blo_import\b/i,
-        /\blo_export\b/i,
-        /\bcopy\b.*\b(from|to)\b/i,
-        /\bpg_sleep\b/i
+        /\bPG_READ_FILE\b/,
+        /\bPG_READ_BINARY_FILE\b/,
+        /\bPG_LS_DIR\b/,
+        /\bPG_WRITE_FILE\b/,
+        /\bLO_IMPORT\b/,
+        /\bLO_EXPORT\b/,
+        /\bCOPY\b.*\b(FROM|TO)\b/,
+        /\bPG_SLEEP\b/
       ];
       for (const pattern of dangerousPatterns) {
-        if (pattern.test(upperSql)) {
+        if (pattern.test(normalizedSql)) {
           throw new Error("Dangerous function detected. This query is not permitted.");
         }
       }
-      const limitMatch = upperSql.match(/\bLIMIT\s+(\d+)/i);
+      const limitMatch = normalizedSql.match(/\bLIMIT\s+(\d+)/);
       if (!limitMatch) {
         throw new Error("All raw queries must include a LIMIT clause.");
       }
@@ -17102,7 +17199,7 @@ function createHandlers(pool, safety, config2) {
         return textResponse(redactRows(result.rows, safety));
       } catch (err) {
         await client.query("ROLLBACK").catch(() => void 0);
-        throw new Error(decodePgError(err));
+        throw new Error(decodePgError(err, config2.mode));
       } finally {
         client.release();
       }
@@ -17129,12 +17226,13 @@ function createHandlers(pool, safety, config2) {
       const fragment = buildInsert(table.name, cleaned, validColumns);
       try {
         const result = await pool.query(fragment.text, fragment.values);
+        invalidateSchemaCache();
         return textResponse({
           created: redactRow(result.rows[0], safety),
           ...stripped.length > 0 && { strippedFields: stripped }
         });
       } catch (err) {
-        throw new Error(decodePgError(err));
+        throw new Error(decodePgError(err, config2.mode));
       }
     },
     db_upsert: async (args) => {
@@ -17176,12 +17274,13 @@ function createHandlers(pool, safety, config2) {
       const fragment = buildUpsert(table.name, cleanedInsert, cleanedUpdate, matched, validColumns);
       try {
         const result = await pool.query(fragment.text, fragment.values);
+        invalidateSchemaCache();
         return textResponse({
           upserted: redactRow(result.rows[0], safety),
           ...stripped.length > 0 && { strippedFields: stripped }
         });
       } catch (err) {
-        throw new Error(decodePgError(err));
+        throw new Error(decodePgError(err, config2.mode));
       }
     },
     db_update_many: async (args) => {
@@ -17214,6 +17313,7 @@ function createHandlers(pool, safety, config2) {
       const fragment = buildUpdate(table.name, cleaned, where, validColumns);
       try {
         const result = await pool.query(fragment.text, fragment.values);
+        invalidateSchemaCache();
         return textResponse({
           table: table.name,
           matched: result.rowCount ?? 0,
@@ -17222,7 +17322,7 @@ function createHandlers(pool, safety, config2) {
           message: `${result.rowCount ?? 0} row(s) updated.`
         });
       } catch (err) {
-        throw new Error(decodePgError(err));
+        throw new Error(decodePgError(err, config2.mode));
       }
     },
     db_delete_many: async (args) => {
@@ -17254,6 +17354,7 @@ function createHandlers(pool, safety, config2) {
       const fragment = buildDelete(table.name, where, validColumns);
       try {
         const result = await pool.query(fragment.text, fragment.values);
+        invalidateSchemaCache();
         return textResponse({
           table: table.name,
           deleted: result.rowCount ?? 0,
@@ -17261,7 +17362,7 @@ function createHandlers(pool, safety, config2) {
           message: `${result.rowCount ?? 0} row(s) deleted.`
         });
       } catch (err) {
-        throw new Error(decodePgError(err));
+        throw new Error(decodePgError(err, config2.mode));
       }
     },
     db_backup: async (args) => {
@@ -17276,9 +17377,10 @@ function createHandlers(pool, safety, config2) {
       const label = args.label ? `-${args.label.replace(/[^a-zA-Z0-9_-]/g, "_")}` : "";
       const filename = `backup-${ts}${label}.sql`;
       const filepath = (0, import_path2.resolve)(config2.backupDir, filename);
+      const pgDumpBin = findPgDump();
       let dump;
       try {
-        dump = (0, import_child_process.execFileSync)("pg_dump", [databaseUrl, "--clean", "--if-exists"], {
+        dump = (0, import_child_process.execFileSync)(pgDumpBin, [databaseUrl, "--clean", "--if-exists"], {
           encoding: "utf-8",
           timeout: 3e4,
           maxBuffer: 1024 * 1024 * 100
