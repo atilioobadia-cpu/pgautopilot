@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PGAutoPilot</title>
+<style>
+:root {
+  --sidebar-bg: #1c1c1c; --sidebar-hover: rgba(255,255,255,.04); --sidebar-active: rgba(36,144,239,.12);
+  --sidebar-text: #8c8c8c; --sidebar-text-active: #e0e0e0; --sidebar-border: #2a2a2a;
+  --navbar-bg: #242424; --page-bg: #2a2a2a; --card-bg: #2e2e2e;
+  --border: #383838; --border-light: #333;
+  --text: #e0e0e0; --text-muted: #8c8c8c; --text-dim: #666;
+  --primary: #2490ef; --primary-hover: #1a7fd9; --primary-light: rgba(36,144,239,.15);
+  --success: #3fb68b; --danger: #e35f5f; --warning: #f0ad4e;
+  --radius: 6px; --radius-sm: 4px;
+  --sidebar-w: 240px; --navbar-h: 48px;
+  --font: Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono: 'SF Mono','Cascadia Code','Fira Code',ui-monospace,Consolas,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--page-bg);color:var(--text);display:flex;height:100vh;overflow:hidden;font-size:13.5px;line-height:1.5}
+
+/* ===== Sidebar ===== */
+.sidebar{width:var(--sidebar-w);background:var(--sidebar-bg);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;border-right:1px solid var(--sidebar-border)}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:12px 16px;height:var(--navbar-h);border-bottom:1px solid var(--sidebar-border);flex-shrink:0}
+.sidebar-brand svg{width:22px;height:22px;flex-shrink:0}
+.sidebar-brand .brand-text{line-height:1.2}
+.sidebar-brand .brand-text h1{font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.2px}
+.sidebar-brand .brand-text small{font-size:9.5px;color:var(--text-dim);font-weight:400;text-transform:uppercase;letter-spacing:.5px}
+.status-bar{display:flex;align-items:center;gap:6px;padding:7px 16px;border-bottom:1px solid var(--sidebar-border);font-size:11.5px;color:var(--text-muted);flex-shrink:0}
+.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.status-dot.online{background:var(--success)}
+.status-dot.offline{background:var(--danger)}
+.tool-nav{flex:1;overflow-y:auto;padding:4px 0}
+.tool-nav::-webkit-scrollbar{width:4px}
+.tool-nav::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.nav-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);padding:12px 16px 3px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:6px 12px 6px 14px;border:none;background:none;color:var(--sidebar-text);cursor:pointer;font-size:13px;transition:all .1s;text-align:left;border-left:3px solid transparent;font-family:inherit}
+.nav-item:hover{background:var(--sidebar-hover);color:var(--sidebar-text-active)}
+.nav-item.active{background:var(--sidebar-active);color:var(--sidebar-text-active);border-left-color:var(--primary)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;stroke-width:1.8}
+.nav-item .nav-badge{margin-left:auto;font-size:9.5px;color:var(--text-dim);font-family:var(--mono)}
+
+/* ===== Main ===== */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* Navbar */
+.navbar{display:flex;align-items:center;justify-content:space-between;height:var(--navbar-h);padding:0 16px;background:var(--navbar-bg);border-bottom:1px solid var(--border);flex-shrink:0;gap:12px}
+.navbar-left{display:flex;align-items:center;gap:10px;min-width:0}
+.navbar-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.navbar-desc{font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.navbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.badge-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-sm);font-size:10.5px;font-weight:500;white-space:nowrap;text-transform:uppercase;letter-spacing:.3px}
+.badge-tag.read{background:var(--primary-light);color:var(--primary)}
+.badge-tag.write{background:rgba(240,173,78,.15);color:var(--warning)}
+.badge-tag.maint{background:rgba(255,255,255,.05);color:var(--text-muted)}
+.elapsed{font-size:11px;color:var(--text-dim);font-family:var(--mono)}
+
+/* Content area */
+.content{flex:1;display:flex;gap:1px;overflow:hidden;padding:0;background:var(--border)}
+.panel{background:var(--card-bg);display:flex;flex-direction:column;overflow:hidden}
+.panel-params{width:380px;min-width:280px;flex-shrink:0}
+.panel-results{flex:1}
+.panel-head{padding:8px 12px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:34px}
+.panel-head label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);font-weight:600}
+.panel-head .hint{font-size:10.5px;color:var(--text-dim)}
+
+/* Code editor */
+.code-wrap{flex:1;position:relative;overflow:hidden}
+.code-wrap textarea{width:100%;height:100%;background:var(--card-bg);border:none;color:var(--text);font-family:var(--mono);font-size:12px;line-height:1.7;padding:10px 12px;resize:none;outline:none;tab-size:2;-moz-tab-size:2;white-space:pre;overflow-wrap:normal;overflow-x:auto}
+.code-wrap textarea::placeholder{color:var(--text-dim)}
+
+/* Actions */
+.actions{padding:8px 12px;border-top:1px solid var(--border-light);display:flex;gap:5px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:500;transition:all .12s;background:var(--card-bg);color:var(--text);white-space:nowrap;font-family:inherit;line-height:1.4}
+.btn:hover{background:rgba(255,255,255,.05);border-color:var(--text-dim)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-danger{color:var(--danger);border-color:rgba(227,95,95,.25);background:rgba(227,95,95,.08)}
+.btn-danger:hover{background:rgba(227,95,95,.15)}
+.btn-sm{padding:3px 8px;font-size:11px}
+.btn svg{width:13px;height:13px}
+
+/* Response */
+.result-area{flex:1;overflow:auto;background:var(--page-bg)}
+.result-area pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.result-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:13px;padding:40px;text-align:center}
+.result-tabs{display:flex;border-bottom:1px solid var(--border-light);flex-shrink:0;background:var(--card-bg);padding:0 6px}
+.result-tab{padding:6px 12px;font-size:11.5px;cursor:pointer;color:var(--text-muted);border-bottom:2px solid transparent;transition:all .12s}
+.result-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:500}
+.result-tab:hover{color:var(--text)}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.5);transform:translateY(calc(100% + 50px));opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);z-index:999;max-width:400px;display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast .toast-icon{font-size:14px}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:900px){
+  .sidebar{width:52px}
+  .sidebar-brand .brand-text,.nav-label,.nav-item span,.nav-badge,.status-bar span{display:none}
+  .nav-item{padding:8px;justify-content:center;border-left-width:2px}
+  .content{flex-direction:column}
+  .panel-params{width:100%;min-width:0;max-height:40vh}
+}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+    <div class="brand-text"><h1>pgautopilot</h1><small>PostgreSQL MCP</small></div>
+  </div>
+  <div class="status-bar">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Connecting...</span>
+  </div>
+  <nav class="tool-nav" id="tool-list"></nav>
+</aside>
+
+<div class="main">
+  <div class="navbar">
+    <div class="navbar-left">
+      <span class="navbar-title" id="tool-title">Select a Tool</span>
+      <span class="navbar-desc" id="tool-desc">Click a tool in the sidebar</span>
+    </div>
+    <div class="navbar-right">
+      <span class="badge-tag" id="tool-badge"></span>
+      <span class="elapsed" id="timer-display"></span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="panel panel-params">
+      <div class="panel-head">
+        <label>Parameters</label>
+        <span class="hint">Ctrl+Enter</span>
+      </div>
+      <div class="code-wrap">
+        <textarea id="params-input" spellcheck="false" placeholder='{}'></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="execute-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Execute</button>
+        <button class="btn" id="format-btn" title="Format JSON (Ctrl+Shift+F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></button>
+        <button class="btn btn-sm" id="clear-btn">Clear</button>
+        <span id="loading-area"></span>
+      </div>
+    </div>
+
+    <div class="panel panel-results">
+      <div class="panel-head">
+        <label>Response</label>
+        <span class="hint" id="result-meta"></span>
+      </div>
+      <div class="result-tabs">
+        <div class="result-tab active" data-tab="pretty">Pretty</div>
+        <div class="result-tab" data-tab="raw">Raw</div>
+      </div>
+      <div class="result-area" id="result-area">
+        <pre id="result-output"><div class="result-placeholder">Run a tool to see results</div></pre>
+      </div>
+      <div class="actions" style="justify-content:flex-end">
+        <button class="btn btn-sm" id="copy-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+        <button class="btn btn-sm" id="collapse-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Collapse</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const ICONS = {
+  db_overview:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+  db_schema:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+  db_health:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+  db_table_info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  db_find_many:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  db_find_first:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+  db_count:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
+  db_aggregate:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>',
+  db_raw_query:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+  db_create:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  db_upsert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M3 16v5h5"/><path d="M16 21h5v-5"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>',
+  db_update_many:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg>',
+  db_delete_many:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  db_backup:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+};
+
+const TOOLS = {
+  Read: [
+    { name:'db_overview', title:'Overview', desc:'Tables, row counts, relationships', group:'Read' },
+    { name:'db_schema', title:'Schema', desc:'Full column/type/constraint map', group:'Read' },
+    { name:'db_health', title:'Health', desc:'Pool usage, uptime, latency', group:'Read' },
+    { name:'db_table_info', title:'Table Info', desc:'Columns, indexes, row estimates', params:{table:'users'}, group:'Read' },
+    { name:'db_find_many', title:'Find Many', desc:'Filtered, sorted, paginated rows', params:{table:'users',take:10}, group:'Read' },
+    { name:'db_find_first', title:'Find First', desc:'Single matching row by filter', params:{table:'users',where:'{"id":1}'}, group:'Read' },
+    { name:'db_count', title:'Count', desc:'Row count with optional filter', params:{table:'users'}, group:'Read' },
+    { name:'db_aggregate', title:'Aggregate', desc:'Grouped count/sum/avg/min/max', params:{table:'orders',by:'status',_sum:'total',take:10}, group:'Read' },
+    { name:'db_raw_query', title:'Raw Query', desc:'Custom SELECT with LIMIT', params:{sql:'SELECT * FROM users LIMIT 10'}, group:'Read' },
+  ],
+  Write: [
+    { name:'db_create', title:'Create Row', desc:'Insert with auto redaction', write:true, params:{table:'users',data:'{"name":"Jane","email":"j@e.com"}',dryRun:true}, group:'Write' },
+    { name:'db_upsert', title:'Upsert', desc:'Insert or update on conflict', write:true, params:{table:'users',where:'{"id":1}',create:'{"name":"Jane"}',update:'{"name":"Updated"}',dryRun:true}, group:'Write' },
+    { name:'db_update_many', title:'Update', desc:'Update rows matching filter', write:true, params:{table:'users',where:'{"id":1}',data:'{"name":"Updated"}',dryRun:true}, group:'Write' },
+    { name:'db_delete_many', title:'Delete', desc:'Delete rows matching filter', write:true, params:{table:'logs',where:'{"id":999}',dryRun:true}, group:'Write' },
+  ],
+  Maintenance: [
+    { name:'db_backup', title:'Backup', desc:'Full SQL dump via pg_dump', params:{label:'manual'}, group:'Maintenance' },
+  ]
+};
+
+let activeTool = null;
+let resultHistory = [];
+let collapsed = false;
+
+function buildSidebar() {
+  const list = document.getElementById('tool-list');
+  Object.entries(TOOLS).forEach(([g,tools]) => {
+    const l = document.createElement('div'); l.className='nav-label'; l.textContent=g; list.appendChild(l);
+    tools.forEach(t => {
+      const b = document.createElement('button'); b.className='nav-item'; b.dataset.tool=t.name;
+      const svg = ICONS[t.name]||ICONS.db_overview;
+      b.innerHTML=`${svg}<span>${t.title}</span><span class="nav-badge">${t.name}</span>`;
+      b.onclick=()=>selectTool(t); list.appendChild(b);
+    });
+  });
+}
+
+function selectTool(tool) {
+  activeTool=tool;
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool.name));
+  document.getElementById('tool-title').textContent=tool.title;
+  document.getElementById('tool-desc').textContent=tool.desc;
+  const badge=document.getElementById('tool-badge');
+  if(tool.write){badge.textContent='WRITE';badge.className='badge-tag write';}
+  else if(tool.group==='Maintenance'){badge.textContent='MAINT';badge.className='badge-tag maint';}
+  else{badge.textContent='READ';badge.className='badge-tag read';}
+  document.getElementById('params-input').value=JSON.stringify(tool.params||{},null,2);
+  document.getElementById('timer-display').textContent='';
+  document.getElementById('result-meta').textContent='';
+  document.getElementById('result-output').innerHTML='<div class="result-placeholder">Ready</div>';
+  collapsed=false;
+}
+
+let toastTimer;
+function showToast(msg,type){
+  const t=document.getElementById('toast');
+  const icon=type==='success'?'✓':type==='error'?'✗':'ℹ';
+  t.innerHTML=`<span class="toast-icon">${icon}</span>${msg}`;t.className='toast';
+  clearTimeout(toastTimer);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+function formatJson(){const ta=document.getElementById('params-input');try{ta.value=JSON.stringify(JSON.parse(ta.value),null,2)}catch(e){showToast('Invalid JSON: '+e.message,'error')}}
+
+function shl(json){
+  if(typeof json!=='string')json=JSON.stringify(json,null,2);
+  json=json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return json.replace(/"([^"\\]|\\.)*"\s*:/g,m=>`<span style="color:#2490ef">${m.slice(0,-1)}</span>:`)
+    .replace(/"([^"\\]|\\.)*"/g,m=>`<span style="color:#59a0ff">${m}</span>`)
+    .replace(/\b(-?\d+\.?\d*(?:e[+-]?\d+)?)\b/gi,m=>`<span style="color:#d4a84b">${m}</span>`)
+    .replace(/\b(true|false)\b/gi,m=>`<span style="color:#e35f5f">${m}</span>`)
+    .replace(/\b(null)\b/gi,m=>`<span style="color:#666">${m}</span>`);
+}
+
+function renderResult(data){
+  const area=document.getElementById('result-output');
+  const raw=typeof data==='string'?data:JSON.stringify(data,null,2);
+  area.innerHTML=shl(raw);
+  document.getElementById('result-meta').textContent=`${raw.split('\n').length} lines, ${raw.length} B`;
+  resultHistory.push({tool:activeTool?.name,data,timestamp:Date.now()});
+}
+
+async function execute(){
+  if(!activeTool)return;
+  const btn=document.getElementById('execute-btn'),loading=document.getElementById('loading-area');
+  btn.disabled=true;loading.innerHTML='<span class="spinner"></span>';
+  document.getElementById('timer-display').textContent='...';
+  let params={};
+  try{params=JSON.parse(document.getElementById('params-input').value||'{}')}
+  catch(e){
+    document.getElementById('result-output').innerHTML=`<div style="color:var(--danger);padding:10px 12px">Invalid JSON: ${e.message}</div>`;
+    showToast('Invalid JSON','error');btn.disabled=false;loading.innerHTML='';document.getElementById('timer-display').textContent='';return;
+  }
+  const start=performance.now();
+  try{
+    const res=await fetch(`/api/tools/${activeTool.name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(params)});
+    const e=((performance.now()-start)/1000).toFixed(2);
+    const data=await res.json();
+    document.getElementById('timer-display').textContent=`${e}s`;
+    if(!res.ok){document.getElementById('result-output').innerHTML=`<div style="color:var(--danger);padding:10px 12px">${data.error||'Error'}</div>`;showToast(data.error||'Error','error')}
+    else{renderResult(data);showToast(`Done in ${e}s`,'success')}
+  }catch(err){
+    const e=((performance.now()-start)/1000).toFixed(2);
+    document.getElementById('timer-display').textContent=`${e}s`;
+    document.getElementById('result-output').innerHTML=`<div style="color:var(--danger);padding:10px 12px">Network error: ${err.message}</div>`;
+    showToast('Network error','error');
+  }finally{btn.disabled=false;loading.innerHTML=''}
+}
+
+async function checkHealth(){
+  const dot=document.getElementById('status-dot'),text=document.getElementById('status-text');
+  try{const res=await fetch('/api/health');const data=await res.json();const ok=data.status==='connected';dot.className='status-dot '+(ok?'online':'offline');text.textContent=ok?'Connected':'Disconnected'}
+  catch{dot.className='status-dot offline';text.textContent='Offline'}
+}
+
+function copyResult(){navigator.clipboard.writeText(document.getElementById('result-output').textContent).then(()=>showToast('Copied','success')).catch(()=>showToast('Copy failed','error'))}
+
+document.querySelectorAll('.result-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.result-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');
+    const mode=tab.dataset.tab,last=resultHistory[resultHistory.length-1];
+    if(last){const el=document.getElementById('result-output');el.innerHTML=mode==='raw'?el.textContent.replace(/</g,'&lt;').replace(/>/g,'&gt;'):shl(el.textContent)}
+  });
+});
+
+buildSidebar();checkHealth();setInterval(checkHealth,5000);selectTool(TOOLS.Read[0]);
+document.getElementById('execute-btn').onclick=execute;
+document.getElementById('format-btn').onclick=formatJson;
+document.getElementById('clear-btn').onclick=()=>{document.getElementById('params-input').value='{}'};
+document.getElementById('copy-btn').onclick=copyResult;
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')execute();if((e.ctrlKey||e.metaKey)&&e.key==='Shift+f'){e.preventDefault();formatJson()}});
+</script>
+</body>
+</html>

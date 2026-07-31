@@ -86,6 +86,16 @@ async function main() {
     log.info(`Blocked tables: ${[...safety.blockedTables].join(", ")}`);
   }
 
+  const argv = process.argv.slice(2);
+  if (argv.includes("--http")) {
+    const portArg = argv.find((a) => a.startsWith("--port="));
+    const httpPort = portArg ? parseInt(portArg.split("=")[1]!, 10) : 3000;
+    if (Number.isFinite(httpPort) && httpPort > 0) {
+      const { startHttpServer } = await import("./httpServer.js");
+      startHttpServer(pool, safety, config, httpPort);
+    }
+  }
+
   const shutdown = async () => {
     await server.close();
     await pool.end();
