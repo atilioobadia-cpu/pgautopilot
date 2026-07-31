@@ -3,108 +3,120 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>PGAutoPilot</title>
+<title>pgautopilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --sidebar-bg: #1c1c1c; --sidebar-hover: rgba(255,255,255,.04); --sidebar-active: rgba(36,144,239,.12);
-  --sidebar-text: #8c8c8c; --sidebar-text-active: #e0e0e0; --sidebar-border: #2a2a2a;
-  --navbar-bg: #242424; --page-bg: #2a2a2a; --card-bg: #2e2e2e;
-  --border: #383838; --border-light: #333;
-  --text: #e0e0e0; --text-muted: #8c8c8c; --text-dim: #666;
-  --primary: #2490ef; --primary-hover: #1a7fd9; --primary-light: rgba(36,144,239,.15);
+  --primary: #2490ef; --primary-hover: #1a7fd9;
+  --primary-light: rgba(36,144,239,.12); --primary-bg: rgba(36,144,239,.08);
+  --sidebar-bg: #1c1c1c; --sidebar-hover: rgba(255,255,255,.04);
+  --sidebar-active-bg: rgba(36,144,239,.1); --sidebar-text: #8c8c8c;
+  --sidebar-text-active: #f0f0f0; --sidebar-separator: rgba(255,255,255,.06);
+  --navbar-bg: #242424; --page-bg: #1f2328;
+  --card-bg: #282b30; --card-border: #383838;
+  --input-bg: #1e1e1e; --input-border: #383838; --input-focus: #2490ef;
+  --text: #e0e0e0; --text-muted: #8c8c8c; --text-dim: #5a5a5a;
   --success: #3fb68b; --danger: #e35f5f; --warning: #f0ad4e;
   --radius: 6px; --radius-sm: 4px;
   --sidebar-w: 240px; --navbar-h: 48px;
-  --font: Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --mono: 'SF Mono','Cascadia Code','Fira Code',ui-monospace,Consolas,monospace;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--font);background:var(--page-bg);color:var(--text);display:flex;height:100vh;overflow:hidden;font-size:13.5px;line-height:1.5}
+body{font-family:var(--font);background:var(--page-bg);color:var(--text);display:flex;height:100vh;overflow:hidden;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
-/* ===== Sidebar ===== */
-.sidebar{width:var(--sidebar-w);background:var(--sidebar-bg);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;border-right:1px solid var(--sidebar-border)}
-.sidebar-brand{display:flex;align-items:center;gap:10px;padding:12px 16px;height:var(--navbar-h);border-bottom:1px solid var(--sidebar-border);flex-shrink:0}
-.sidebar-brand svg{width:22px;height:22px;flex-shrink:0}
+/* === Sidebar === */
+.sidebar{width:var(--sidebar-w);background:var(--sidebar-bg);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:0 16px;height:var(--navbar-h);flex-shrink:0;border-bottom:1px solid var(--sidebar-separator)}
+.sidebar-brand .brand-icon{width:22px;height:22px;flex-shrink:0;color:var(--primary)}
 .sidebar-brand .brand-text{line-height:1.2}
-.sidebar-brand .brand-text h1{font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.2px}
-.sidebar-brand .brand-text small{font-size:9.5px;color:var(--text-dim);font-weight:400;text-transform:uppercase;letter-spacing:.5px}
-.status-bar{display:flex;align-items:center;gap:6px;padding:7px 16px;border-bottom:1px solid var(--sidebar-border);font-size:11.5px;color:var(--text-muted);flex-shrink:0}
-.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.status-dot.online{background:var(--success)}
-.status-dot.offline{background:var(--danger)}
-.tool-nav{flex:1;overflow-y:auto;padding:4px 0}
+.sidebar-brand .brand-text h1{font-size:13.5px;font-weight:600;color:var(--sidebar-text-active);letter-spacing:-.15px}
+.sidebar-brand .brand-text small{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;font-weight:500}
+.sidebar-status{display:flex;align-items:center;gap:7px;padding:7px 16px;font-size:11.5px;color:var(--text-muted);border-bottom:1px solid var(--sidebar-separator);flex-shrink:0}
+.sidebar-status .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sidebar-status .dot.online{background:var(--success)}
+.sidebar-status .dot.offline{background:var(--danger)}
+.tool-nav{flex:1;overflow-y:auto;padding:4px 0 16px}
 .tool-nav::-webkit-scrollbar{width:4px}
-.tool-nav::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.nav-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);padding:12px 16px 3px;font-weight:600}
-.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:6px 12px 6px 14px;border:none;background:none;color:var(--sidebar-text);cursor:pointer;font-size:13px;transition:all .1s;text-align:left;border-left:3px solid transparent;font-family:inherit}
+.tool-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+.nav-section{padding:0}
+.nav-section-header{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);padding:10px 16px 3px 16px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:5.5px 12px 5.5px 14px;border:none;background:none;color:var(--sidebar-text);cursor:pointer;font-size:12.5px;transition:all .1s;text-align:left;border-left:3px solid transparent;font-family:var(--font);position:relative}
 .nav-item:hover{background:var(--sidebar-hover);color:var(--sidebar-text-active)}
-.nav-item.active{background:var(--sidebar-active);color:var(--sidebar-text-active);border-left-color:var(--primary)}
-.nav-item svg{width:15px;height:15px;flex-shrink:0;stroke-width:1.8}
-.nav-item .nav-badge{margin-left:auto;font-size:9.5px;color:var(--text-dim);font-family:var(--mono)}
+.nav-item.active{background:var(--sidebar-active-bg);color:var(--sidebar-text-active);border-left-color:var(--primary)}
+.nav-item .nav-icon{width:15px;height:15px;flex-shrink:0;stroke-width:1.7;display:flex;align-items:center;justify-content:center}
+.nav-item .nav-icon svg{width:15px;height:15px}
+.nav-item .nav-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-item .nav-badge{margin-left:auto;font-size:9px;color:var(--text-dim);font-family:var(--mono);opacity:.7}
 
-/* ===== Main ===== */
+/* === Main === */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 
 /* Navbar */
-.navbar{display:flex;align-items:center;justify-content:space-between;height:var(--navbar-h);padding:0 16px;background:var(--navbar-bg);border-bottom:1px solid var(--border);flex-shrink:0;gap:12px}
-.navbar-left{display:flex;align-items:center;gap:10px;min-width:0}
-.navbar-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.navbar-desc{font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.navbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.badge-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-sm);font-size:10.5px;font-weight:500;white-space:nowrap;text-transform:uppercase;letter-spacing:.3px}
-.badge-tag.read{background:var(--primary-light);color:var(--primary)}
-.badge-tag.write{background:rgba(240,173,78,.15);color:var(--warning)}
-.badge-tag.maint{background:rgba(255,255,255,.05);color:var(--text-muted)}
-.elapsed{font-size:11px;color:var(--text-dim);font-family:var(--mono)}
+.navbar{display:flex;align-items:center;justify-content:space-between;height:var(--navbar-h);padding:0 20px;background:var(--navbar-bg);border-bottom:1px solid var(--card-border);flex-shrink:0;gap:12px}
+.navbar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.navbar-title{font-size:14.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.navbar-desc{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.navbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.badge-frappe{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-sm);font-size:10px;font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:.3px;height:22px}
+.badge-frappe.read{background:var(--primary-bg);color:var(--primary)}
+.badge-frappe.write{background:rgba(240,173,78,.12);color:var(--warning)}
+.badge-frappe.maint{background:rgba(255,255,255,.05);color:var(--text-muted)}
+.elapsed{font-size:11px;color:var(--text-dim);font-family:var(--mono);min-width:36px;text-align:right}
 
-/* Content area */
-.content{flex:1;display:flex;gap:1px;overflow:hidden;padding:0;background:var(--border)}
-.panel{background:var(--card-bg);display:flex;flex-direction:column;overflow:hidden}
-.panel-params{width:380px;min-width:280px;flex-shrink:0}
-.panel-results{flex:1}
-.panel-head{padding:8px 12px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:34px}
-.panel-head label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);font-weight:600}
-.panel-head .hint{font-size:10.5px;color:var(--text-dim)}
+/* Page content */
+.page-content{flex:1;display:flex;gap:0;overflow:hidden;padding:0}
 
-/* Code editor */
-.code-wrap{flex:1;position:relative;overflow:hidden}
-.code-wrap textarea{width:100%;height:100%;background:var(--card-bg);border:none;color:var(--text);font-family:var(--mono);font-size:12px;line-height:1.7;padding:10px 12px;resize:none;outline:none;tab-size:2;-moz-tab-size:2;white-space:pre;overflow-wrap:normal;overflow-x:auto}
-.code-wrap textarea::placeholder{color:var(--text-dim)}
+/* Frappe Card */
+.frappe-card{background:var(--card-bg);border:1px solid var(--card-border);display:flex;flex-direction:column;overflow:hidden}
+.frappe-card.card-params{width:400px;min-width:300px;flex-shrink:0;border-right:none}
+.frappe-card.card-results{flex:1}
+.card-head{padding:8px 14px;border-bottom:1px solid var(--card-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:36px}
+.card-head label{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);font-weight:600}
+.card-head .card-hint{font-size:11px;color:var(--text-dim)}
 
-/* Actions */
-.actions{padding:8px 12px;border-top:1px solid var(--border-light);display:flex;gap:5px;align-items:center;flex-shrink:0;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:500;transition:all .12s;background:var(--card-bg);color:var(--text);white-space:nowrap;font-family:inherit;line-height:1.4}
-.btn:hover{background:rgba(255,255,255,.05);border-color:var(--text-dim)}
-.btn:disabled{opacity:.4;cursor:not-allowed}
+/* Code/Input area */
+.input-area{flex:1;position:relative;overflow:hidden}
+.input-area textarea{width:100%;height:100%;background:var(--input-bg);border:none;color:var(--text);font-family:var(--mono);font-size:11.5px;line-height:1.8;padding:10px 12px;resize:none;outline:none;tab-size:2;-moz-tab-size:2;white-space:pre;overflow-wrap:normal;overflow-x:auto}
+.input-area textarea::placeholder{color:var(--text-dim)}
+.input-area textarea:focus{background:var(--input-bg)}
+
+/* Frappe Buttons */
+.frappe-btns{padding:8px 14px;border-top:1px solid var(--card-border);display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5.5px 12px;border:1px solid var(--card-border);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:500;transition:all .12s;background:var(--card-bg);color:var(--text);white-space:nowrap;font-family:var(--font);line-height:1.4;min-height:28px}
+.btn:hover{background:rgba(255,255,255,.06);border-color:var(--text-dim)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
 .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
-.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
 .btn-danger{color:var(--danger);border-color:rgba(227,95,95,.25);background:rgba(227,95,95,.08)}
 .btn-danger:hover{background:rgba(227,95,95,.15)}
-.btn-sm{padding:3px 8px;font-size:11px}
+.btn-sm{padding:3px 8px;font-size:11px;min-height:24px}
 .btn svg{width:13px;height:13px}
 
-/* Response */
-.result-area{flex:1;overflow:auto;background:var(--page-bg)}
-.result-area pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
-.result-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:13px;padding:40px;text-align:center}
-.result-tabs{display:flex;border-bottom:1px solid var(--border-light);flex-shrink:0;background:var(--card-bg);padding:0 6px}
-.result-tab{padding:6px 12px;font-size:11.5px;cursor:pointer;color:var(--text-muted);border-bottom:2px solid transparent;transition:all .12s}
-.result-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:500}
-.result-tab:hover{color:var(--text)}
+/* Response area */
+.response-area{flex:1;overflow:auto;background:var(--page-bg)}
+.response-area pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.8;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.response-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:13px;padding:40px;text-align:center}
+.response-tabs{display:flex;border-bottom:1px solid var(--card-border);flex-shrink:0;background:var(--card-bg);padding:0 6px}
+.response-tab{padding:5.5px 12px;font-size:11.5px;cursor:pointer;color:var(--text-muted);border-bottom:2px solid transparent;transition:all .12s}
+.response-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:500}
+.response-tab:hover{color:var(--text)}
 
 /* Toast */
-.toast{position:fixed;bottom:20px;right:20px;background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.5);transform:translateY(calc(100% + 50px));opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);z-index:999;max-width:400px;display:flex;align-items:center;gap:8px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:10px 16px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.5);transform:translateY(calc(100% + 50px));opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);z-index:999;max-width:400px;display:flex;align-items:center;gap:8px}
 .toast.show{transform:translateY(0);opacity:1}
-.toast .toast-icon{font-size:14px}
-.spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+.toast-icon{font-size:14px;flex-shrink:0}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 @media(max-width:900px){
   .sidebar{width:52px}
-  .sidebar-brand .brand-text,.nav-label,.nav-item span,.nav-badge,.status-bar span{display:none}
+  .sidebar-brand .brand-text,.nav-section-header,.nav-item .nav-label,.nav-badge,.sidebar-status span{display:none}
   .nav-item{padding:8px;justify-content:center;border-left-width:2px}
-  .content{flex-direction:column}
-  .panel-params{width:100%;min-width:0;max-height:40vh}
+  .page-content{flex-direction:column}
+  .frappe-card.card-params{width:100%;min-width:0;max-height:40vh;border-right:1px solid var(--card-border);border-bottom:none}
 }
 </style>
 </head>
@@ -112,11 +124,11 @@ body{font-family:var(--font);background:var(--page-bg);color:var(--text);display
 
 <aside class="sidebar">
   <div class="sidebar-brand">
-    <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
     <div class="brand-text"><h1>pgautopilot</h1><small>PostgreSQL MCP</small></div>
   </div>
-  <div class="status-bar">
-    <span class="status-dot" id="status-dot"></span>
+  <div class="sidebar-status">
+    <span class="dot" id="status-dot"></span>
     <span id="status-text">Connecting...</span>
   </div>
   <nav class="tool-nav" id="tool-list"></nav>
@@ -129,41 +141,41 @@ body{font-family:var(--font);background:var(--page-bg);color:var(--text);display
       <span class="navbar-desc" id="tool-desc">Click a tool in the sidebar</span>
     </div>
     <div class="navbar-right">
-      <span class="badge-tag" id="tool-badge"></span>
+      <span class="badge-frappe" id="tool-badge"></span>
       <span class="elapsed" id="timer-display"></span>
     </div>
   </div>
 
-  <div class="content">
-    <div class="panel panel-params">
-      <div class="panel-head">
+  <div class="page-content">
+    <div class="frappe-card card-params">
+      <div class="card-head">
         <label>Parameters</label>
-        <span class="hint">Ctrl+Enter</span>
+        <span class="card-hint">Ctrl+Enter</span>
       </div>
-      <div class="code-wrap">
+      <div class="input-area">
         <textarea id="params-input" spellcheck="false" placeholder='{}'></textarea>
       </div>
-      <div class="actions">
+      <div class="frappe-btns">
         <button class="btn btn-primary" id="execute-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Execute</button>
-        <button class="btn" id="format-btn" title="Format JSON (Ctrl+Shift+F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></button>
+        <button class="btn" id="format-btn" title="Format JSON"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></button>
         <button class="btn btn-sm" id="clear-btn">Clear</button>
         <span id="loading-area"></span>
       </div>
     </div>
 
-    <div class="panel panel-results">
-      <div class="panel-head">
+    <div class="frappe-card card-results">
+      <div class="card-head">
         <label>Response</label>
-        <span class="hint" id="result-meta"></span>
+        <span class="card-hint" id="result-meta"></span>
       </div>
-      <div class="result-tabs">
-        <div class="result-tab active" data-tab="pretty">Pretty</div>
-        <div class="result-tab" data-tab="raw">Raw</div>
+      <div class="response-tabs">
+        <div class="response-tab active" data-tab="pretty">Pretty</div>
+        <div class="response-tab" data-tab="raw">Raw</div>
       </div>
-      <div class="result-area" id="result-area">
-        <pre id="result-output"><div class="result-placeholder">Run a tool to see results</div></pre>
+      <div class="response-area" id="result-area">
+        <pre id="result-output"><div class="response-placeholder">Run a tool to see results</div></pre>
       </div>
-      <div class="actions" style="justify-content:flex-end">
+      <div class="frappe-btns" style="justify-content:flex-end">
         <button class="btn btn-sm" id="copy-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
         <button class="btn btn-sm" id="collapse-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Collapse</button>
       </div>
@@ -221,13 +233,15 @@ let collapsed = false;
 function buildSidebar() {
   const list = document.getElementById('tool-list');
   Object.entries(TOOLS).forEach(([g,tools]) => {
-    const l = document.createElement('div'); l.className='nav-label'; l.textContent=g; list.appendChild(l);
+    const s = document.createElement('div'); s.className='nav-section';
+    const h = document.createElement('div'); h.className='nav-section-header'; h.textContent=g; s.appendChild(h);
     tools.forEach(t => {
       const b = document.createElement('button'); b.className='nav-item'; b.dataset.tool=t.name;
       const svg = ICONS[t.name]||ICONS.db_overview;
-      b.innerHTML=`${svg}<span>${t.title}</span><span class="nav-badge">${t.name}</span>`;
-      b.onclick=()=>selectTool(t); list.appendChild(b);
+      b.innerHTML=`<span class="nav-icon">${svg}</span><span class="nav-label">${t.title}</span><span class="nav-badge">${t.name}</span>`;
+      b.onclick=()=>selectTool(t); s.appendChild(b);
     });
+    list.appendChild(s);
   });
 }
 
@@ -237,21 +251,21 @@ function selectTool(tool) {
   document.getElementById('tool-title').textContent=tool.title;
   document.getElementById('tool-desc').textContent=tool.desc;
   const badge=document.getElementById('tool-badge');
-  if(tool.write){badge.textContent='WRITE';badge.className='badge-tag write';}
-  else if(tool.group==='Maintenance'){badge.textContent='MAINT';badge.className='badge-tag maint';}
-  else{badge.textContent='READ';badge.className='badge-tag read';}
+  if(tool.write){badge.textContent='WRITE';badge.className='badge-frappe write';}
+  else if(tool.group==='Maintenance'){badge.textContent='MAINT';badge.className='badge-frappe maint';}
+  else{badge.textContent='READ';badge.className='badge-frappe read';}
   document.getElementById('params-input').value=JSON.stringify(tool.params||{},null,2);
   document.getElementById('timer-display').textContent='';
   document.getElementById('result-meta').textContent='';
-  document.getElementById('result-output').innerHTML='<div class="result-placeholder">Ready</div>';
+  document.getElementById('result-output').innerHTML='<div class="response-placeholder">Ready</div>';
   collapsed=false;
 }
 
 let toastTimer;
 function showToast(msg,type){
   const t=document.getElementById('toast');
-  const icon=type==='success'?'✓':type==='error'?'✗':'ℹ';
-  t.innerHTML=`<span class="toast-icon">${icon}</span>${msg}`;t.className='toast';
+  const icons={success:'\u2713',error:'\u2717',info:'\u2139'};
+  t.innerHTML=`<span class="toast-icon">${icons[type]||icons.info}</span>${msg}`;t.className='toast';
   clearTimeout(toastTimer);
   requestAnimationFrame(()=>t.classList.add('show'));
   toastTimer=setTimeout(()=>t.classList.remove('show'),3500);
@@ -266,7 +280,7 @@ function shl(json){
     .replace(/"([^"\\]|\\.)*"/g,m=>`<span style="color:#59a0ff">${m}</span>`)
     .replace(/\b(-?\d+\.?\d*(?:e[+-]?\d+)?)\b/gi,m=>`<span style="color:#d4a84b">${m}</span>`)
     .replace(/\b(true|false)\b/gi,m=>`<span style="color:#e35f5f">${m}</span>`)
-    .replace(/\b(null)\b/gi,m=>`<span style="color:#666">${m}</span>`);
+    .replace(/\b(null)\b/gi,m=>`<span style="color:#5a5a5a;font-style:italic">${m}</span>`);
 }
 
 function renderResult(data){
@@ -306,15 +320,15 @@ async function execute(){
 
 async function checkHealth(){
   const dot=document.getElementById('status-dot'),text=document.getElementById('status-text');
-  try{const res=await fetch('/api/health');const data=await res.json();const ok=data.status==='connected';dot.className='status-dot '+(ok?'online':'offline');text.textContent=ok?'Connected':'Disconnected'}
-  catch{dot.className='status-dot offline';text.textContent='Offline'}
+  try{const res=await fetch('/api/health');const data=await res.json();const ok=data.status==='connected';dot.className='dot '+(ok?'online':'offline');text.textContent=ok?'Connected':'Disconnected'}
+  catch{dot.className='dot offline';text.textContent='Offline'}
 }
 
 function copyResult(){navigator.clipboard.writeText(document.getElementById('result-output').textContent).then(()=>showToast('Copied','success')).catch(()=>showToast('Copy failed','error'))}
 
-document.querySelectorAll('.result-tab').forEach(tab=>{
+document.querySelectorAll('.response-tab').forEach(tab=>{
   tab.addEventListener('click',()=>{
-    document.querySelectorAll('.result-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');
+    document.querySelectorAll('.response-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');
     const mode=tab.dataset.tab,last=resultHistory[resultHistory.length-1];
     if(last){const el=document.getElementById('result-output');el.innerHTML=mode==='raw'?el.textContent.replace(/</g,'&lt;').replace(/>/g,'&gt;'):shl(el.textContent)}
   });
